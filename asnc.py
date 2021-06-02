@@ -5,7 +5,7 @@ import asyncpg
 routes = web.RouteTableDef()
 
 
-#db create
+# db create
 async def install(user, database):
     try:
         conn = await asyncpg.connect(user=user, database=database)
@@ -27,10 +27,10 @@ async def install(user, database):
             CREATE TABLE cafe(
                 id serial PRIMARY KEY,
                 name text,
-                latitude float8, 
+                latitude float8,
                 longitude float8
             );
-            INSERT INTO cafe(name, latitude, longitude) 
+            INSERT INTO cafe(name, latitude, longitude)
             VALUES
             ('Coffe Bean', '53.196146', '50.109861'),
             ('Surf Coffe', '53.188422', '50.098061'),
@@ -84,7 +84,7 @@ async def get_cafe(request):
         longitude = request.rel_url.query['long']
         row = await search_cafe(row, float(latitude), float(longitude))
         return web.Response(text=row)
-    
+
     return web.Response(
         text='''<html><body>
             <form action="/get_cafe/" method="get" accept-charset="utf-8"
@@ -130,7 +130,7 @@ async def set_cafe(request):
             </form>
             </body></html>''',
         content_type="text/html")
-    
+
 
 @routes.post('/post_cafe/')
 async def post_cafe(request):
@@ -138,24 +138,26 @@ async def post_cafe(request):
     try:
         await save_cafe(request, str(data['name']), int(data['latitude']), int(data['longitude']))
         return web.Response(text='Кафе открыто')
-    except ValueError: 
+    except ValueError:
         return web.Response(text='Вы ввели не число')
-    print (data['name'], data['latitude'], data['longitude'])
+    print(data['name'], data['latitude'], data['longitude'])
+
 
 async def search_cafe(row, latitude, longitude):
     row = await app['db'].fetch('''
-        SELECT * FROM (SELECT с.*,( 6371 * acos( cos( radians($1) ) * cos( radians( с.latitude ) ) * cos( radians( с.longitude ) - radians($2) ) + sin( radians($1) ) * sin( radians( с.latitude ) ) ) ) < 1 AS distance FROM cafe с ) 
+        SELECT * FROM (SELECT с.*,( 6371 * acos( cos( radians($1) ) * cos( radians( с.latitude ) ) * cos( radians( с.longitude ) - radians($2) ) + sin( radians($1) ) * sin( radians( с.latitude ) ) ) ) < 1 AS distance FROM cafe с )
         as distance
         WHERE distance = true
         ''', latitude, longitude)
 
     if not row:
         row = 'Кофейни по близости не найдены'
-    row=str(row)
+    row = str(row)
     return row
 
+
 async def save_cafe(request, name, latitude, longitude):
-    print (name, latitude, longitude)
+    print(name, latitude, longitude)
     await app['db'].execute('''
     INSERT INTO cafe (name, latitude, longitude) VALUES ($1, $2, $3);
     ''', name, latitude, longitude)
@@ -163,10 +165,12 @@ async def save_cafe(request, name, latitude, longitude):
     for ws in request.app['websockets']:
         await ws.send_str(name)
 
+
 async def on_start(app):
     app['db'] = await asyncpg.create_pool('postgresql://postgres:123@localhost:5432/cafe')
     app['websockets'] = []
     print('ok')
+
 
 async def on_shutdown(app):
     await app['db'].close()
